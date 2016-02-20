@@ -1,0 +1,179 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <title>Save our Planet</title>
+        <style type="text/css">
+            body{
+                margin: 0;
+                padding: 0
+            }
+        </style>
+        <script type="text/javascript">
+            var TheGame = {};
+            </script>
+        <script src="phaser.min.js"></script>
+        <script src="gyro.min.js"></script>
+    </head>
+    <body>
+        <script type="text/javascript">
+            
+        TheGame.PlayState = function(game) {
+            this.cursors;
+            this.fireKey;
+            this.fireKeyDown;
+            this.lasers;
+            this.planets;
+            this.rocketship;
+            this.sfx;
+        };
+        
+        TheGame.PlayState.prototype = {
+            preload: function () {
+                this.load.image('rocketship', 'assets/rocketship.png');
+                this.load.image('planet', 'assets/planet.png');
+                this.load.image('laser', 'assets/laser.png');
+                
+                this.load.audio('sfx', 'assets/laser.mp3');
+            },
+            
+            spawnPlanet: function() {
+                if (this.planets.total > 4) return;
+                
+                planet = this.add.sprite(-1000, -1000, 'planet');
+                planet.scale.setTo(0.2, 0.2);
+                planet.anchor.set(0.5, 0.5);
+                
+                this.planets.add(planet);
+            },
+            
+            create: function () {
+                this.cursors = this.input.keyboard.createCursorKeys();
+                this.fireKey = this.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+                this.fireKeyDown = false;
+                
+                this.rocketship = this.add.sprite(this.game.width/2.0, this.game.height - 40, 'rocketship');
+                this.rocketship.scale.setTo(0.2, 0.2);
+                this.rocketship.anchor.set(0.5, 1.0);
+                
+                this.planets = this.add.group();
+                
+                this.lasers = this.add.group();
+                
+                t = this.add.text(0, this.game.height / 2, "Hello. Protect our planet!", {
+                                  font: "55px Arial",
+                                  fill: "#00ff14",
+                                  boundsAlignH: "center",
+                                  align: "center"
+                                  });
+                t.setTextBounds(16, 16, this.game.width, this.game.height);
+                t.anchor.set(0.0, 0.5);
+
+                this.game.time.events.loop(Phaser.Timer.SECOND * 1, this.spawnPlanet, this);
+                
+                var rs = this.rocketship;
+                
+                this.sfx = this.add.audio('sfx');
+                this.sfx.allowMultiple = true;
+                this.sfx.addMarker('zap', 0, 0.5);
+                
+                gyro.frequency = 1000.0/60.0;
+                gyro.startTracking(function(o) {
+                    rs.x += o.x * 1.3;
+                });		
+
+            },
+            
+            update: function() {
+                if (this.cursors.left.isDown) {
+                    this.rocketship.x -= 3;
+                }
+                
+                if (this.cursors.right.isDown) {
+                    this.rocketship.x += 3;
+                }
+                
+                if (this.fireKey.isDown) {
+                    if (!this.fireKeyDown) {
+                        // Fire laser
+                        this.sfx.play('zap');
+                        laser = this.add.sprite(this.rocketship.x, this.rocketship.y-this.rocketship.height, 'laser');
+                        laser.scale.setTo(0.05, 0.05);
+                        laser.anchor.set(0.5, 0.5);
+                        
+                        this.lasers.add(laser);
+                    }
+                    this.fireKeyDown = true;
+                } else {
+                    this.fireKeyDown = false;
+                }
+                
+                this.input.onDown.add(function(p) {
+                  if (!this.fireKeyDown) {
+                    if (p.y > 1200) {
+                        if (window.webkit.messageHandlers) {
+                            window.webkit.messageHandlers.you1.postMessage("ShowTab");
+                        }
+                    }
+                    this.sfx.play('zap');
+                    laser = this.add.sprite(this.rocketship.x, this.rocketship.y-this.rocketship.height, 'laser');
+                    laser.scale.setTo(0.05, 0.05);
+                    laser.anchor.set(0.5, 0.5);
+                    this.lasers.add(laser);
+                  }
+                  this.fireKeyDown = true;
+                }, this);
+                
+                this.input.onUp.add(function(p) {
+                  this.fireKeyDown = false;
+                }, this);
+                
+                this.planets.forEach(function(p) {
+                     if (p.x == -1000) {
+                         p.x = this.game.width * Math.random();
+                         p.y = 0;
+                     } else {
+                         p.y += 1;
+                     }
+                     
+                     if (p.y > this.game.height) {
+                         this.planets.remove(p, true)
+                     }
+                }, this);
+ 
+                this.lasers.forEach(function(l) {
+                    l.y -= 10;
+
+                    laserRect = new Phaser.Rectangle(l.x, l.y, l.width, l.height);
+                    laserRect.offset (-l.width/2.0, -l.height/2.0);
+
+                    this.planets.forEach(function(p) {
+                        planetRect = new Phaser.Rectangle(p.x, p.y, p.width, p.height);
+                        planetRect.offset (-p.width/2.0, -p.height/2.0);
+                        if (Phaser.Rectangle.intersects(laserRect, planetRect)) {
+                            this.planets.remove(p, true)
+                            this.lasers.remove(l, true)
+                            return;
+                        }					
+
+                    }, this);			
+
+                    if (l.y < 0) {
+                        this.lasers.remove(l, true)
+                    }
+                }, this);
+            }
+        };
+        
+        window.onload = function() {
+            var game = new Phaser.Game("100", "100", Phaser.AUTO);
+            
+            game.state.add('Play', TheGame.PlayState);
+            
+            game.state.start('Play');
+        };
+        
+        
+        </script>
+    </body>
+</html>
